@@ -1,4 +1,4 @@
-# Estado local e credenciais
+﻿# Estado local e credenciais
 .env
 .env.*
 estado.json
@@ -21,3 +21,9 @@ obj/
 bin/
 *.pdb
 *.user
+
+# Snapshots e imagens de recuperacao locais
+estado.json.bak
+*.ready
+AssemblyInfo.tmp.cs
+wallpaper-original.*

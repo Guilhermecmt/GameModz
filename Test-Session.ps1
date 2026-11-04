@@ -2,13 +2,17 @@
 $testRoot=Join-Path $env:TEMP ('GameModz-EngineTest-'+[guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $testRoot|Out-Null
 $base=$testRoot;$stateFile=Join-Path $base 'estado.json'
+$originalWallpaper=Join-Path $testRoot 'original.bmp';Set-Content -LiteralPath $originalWallpaper -Value 'fixture'
+. (Join-Path $PSScriptRoot 'Safety.ps1')
+function Start-RecoveryGuard {$script:guardIdentity=[pscustomobject]@{Id=0;Started='test'}}
+function Remove-RecoveryRegistration {}
 $NaoInterativo=$true;$ReabrirApps=$false
 function Save-State($s){$s|ConvertTo-Json -Depth 12|Set-Content -LiteralPath $stateFile -Encoding UTF8}
-function Wallpaper($path){$script:wallCalls++;if($script:wallFails){throw 'Falha de wallpaper simulada'}}
+function Wallpaper($path){$script:wallCalls++;$script:lastWallpaper=$path;if($script:wallFails){throw 'Falha de wallpaper simulada'}}
 function Effects($value){$script:effectCalls++}
 function Set-TransparencyValue($key,$value){$script:transCalls++}
 function New-TestState {
- [pscustomobject]@{Mode='Active';Wallpaper='original.bmp';Effects=$true;TransparencyExists=$true;Transparency=1;Power='';OneDrive=$null;SyncRequested=$false;ClosedApps=@();AppTargets=@();Priorities=@();Pending=[pscustomobject]@{Wallpaper=$false;Effects=$false;Transparency=$false;Power=$false;OneDrive=$false}}
+ [pscustomobject]@{Mode='Active';Wallpaper=$originalWallpaper;Effects=$true;TransparencyExists=$true;Transparency=1;Power='';OneDrive=$null;SyncRequested=$false;ClosedApps=@();AppTargets=@();Priorities=@();Pending=[pscustomobject]@{Wallpaper=$false;Effects=$false;Transparency=$false;Power=$false;OneDrive=$false}}
 }
 . (Join-Path $PSScriptRoot 'Engine.ps1')
 $fixture=$null
@@ -20,7 +24,7 @@ try {
  if(($report.Steps|Where-Object Id -eq Wallpaper).Status -ne 'Falhou'){throw 'Falha nao registrada.'}
  $script:wallFails=$false;Retry-Step Wallpaper
  $loaded=Read-State
- if($script:wallCalls -ne 2 -or $script:effectCalls -ne 1 -or $loaded.Wallpaper -ne 'original.bmp'){throw 'Repeticao refez outra etapa ou perdeu snapshot.'}
+ if($script:wallCalls -ne 2 -or $script:effectCalls -ne 1 -or $loaded.Wallpaper -ne $originalWallpaper){throw 'Repeticao refez outra etapa ou perdeu snapshot.'}
  Write-Output 'PASS: repeticao isolada preserva snapshot e nao refaz etapas concluidas.'
  $script:wallFails=$true;Restore
  if(-not(Test-Path $stateFile)){throw 'Restauracao com falha perdeu estado.'}
@@ -29,6 +33,18 @@ try {
  $script:wallFails=$false;Retry-Step Wallpaper
  if(Test-Path $stateFile){throw 'Restauracao nao finalizou apos repeticao.'}
  Write-Output 'PASS: restauracao parcial preserva estado e finaliza ao repetir somente a falha.'
+ $s=New-TestState;$s.Wallpaper=Join-Path $testRoot 'deleted.bmp';$s|Add-Member NoteProperty WallpaperBackup $originalWallpaper;$s.Pending.Wallpaper=$true
+ Save-State $s;Set-Content -LiteralPath $reportFile -Value '{invalid';Restore
+ if((Test-Path $stateFile) -or $script:lastWallpaper -ne $originalWallpaper){throw 'Copia da imagem original nao recuperou wallpaper removido.'}
+ Write-Output 'PASS: wallpaper removido usa copia de seguranca e checklist corrompido nao impede restauracao.'
+ $s=New-TestState;$s.Pending.OneDrive=$true;$s.OneDrive='nao-executar.exe';$s.ClosedApps=@([pscustomobject]@{Path='nao-executar.exe'})
+ Save-State $s;$ShutdownRecovery=$true;$RecoveryOnly=$true;Restore
+ $loaded=Read-State
+ if(-not $loaded.Pending.OneDrive -or @($loaded.ClosedApps).Count -ne 1){throw 'Desligamento perdeu pendencias de aplicativos.'}
+ $ShutdownRecovery=$false;$loaded.Pending.OneDrive=$false;Save-State $loaded;Restore
+ if(Test-Path $stateFile){throw 'Recuperacao automatica tentou reabrir aplicativos descartados.'}
+ $RecoveryOnly=$false
+ Write-Output 'PASS: desligamento adia OneDrive e aplicativos; recuperacao automatica nao reabre aplicativos arbitrariamente.'
  $source=Join-Path $testRoot 'fixture.cs';$exe=Join-Path $testRoot 'wallpaper64.exe'
  Set-Content $source 'class Fixture { static void Main() { System.Threading.Thread.Sleep(45000); } }'
  $compiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'

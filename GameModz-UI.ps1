@@ -1,5 +1,9 @@
 ﻿param([switch]$Verificar,[switch]$TestarCiclo)
 $ErrorActionPreference='Stop'
+$uiMutexName='Global\GameModzInterface-'+[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+$script:uiMutex=New-Object Threading.Mutex($false,$uiMutexName)
+try{$uiLocked=$script:uiMutex.WaitOne(0)}catch [Threading.AbandonedMutexException]{$uiLocked=$true}
+if(-not $uiLocked){$script:uiMutex.Dispose();return}
 Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
 Add-Type @'
 using System.Runtime.InteropServices;
@@ -21,14 +25,15 @@ if(Test-Path $powerArt){
 }
 $stateFile=Join-Path $env:LOCALAPPDATA 'GameModz\estado.json'
 $script:worker=$null
+$script:closeAfterRestore=$false
 $script:active=$false
 $script:logPath=$null
 $script:resultPath=$null
 $script:backendPath=Join-Path $root 'GameModz.ps1'
 function Refresh {
- $script:active=Test-Path -LiteralPath $stateFile
- if($script:active){$MainAction.Content='Desativar e restaurar';$Badge.Text='●  Estado salvo';$Headline.Text='Seu ambiente está preparado.';$StateLabel.Text='Restauração disponível';$HeroHint.Text='Ao terminar, restaure aqui as configurações anteriores.'}
- else{$MainAction.Content='Ativar modo de jogo';$Badge.Text='●  Em espera';$Headline.Text='Modo de jogo';$StateLabel.Text='Restauração manual ao terminar';$HeroHint.Text='Fundo preto e interface leve. Seus ajustes ficam salvos.'}
+ $script:active=(Test-Path -LiteralPath $stateFile) -or (Test-Path -LiteralPath ($stateFile+'.bak'))
+ if($script:active){$MainAction.Content='Desativar e restaurar';$Badge.Text='●  Estado salvo';$Headline.Text='Seu ambiente está preparado.';$StateLabel.Text='Restauração disponível';$HeroHint.Text='Ao fechar, suas configurações serão restauradas automaticamente.'}
+ else{$MainAction.Content='Ativar modo de jogo';$Badge.Text='●  Em espera';$Headline.Text='Modo de jogo';$StateLabel.Text='Restauração automática ao fechar';$HeroHint.Text='Fundo preto e interface leve. Seus ajustes ficam salvos.'}
  foreach($c in @($Power,$Sync,$Chrome,$Edge,$Discord,$Spotify)){$c.IsEnabled=(-not $script:active)}
  $Power.IsChecked=$false;$Power.IsEnabled=$false
  $MainAction.IsEnabled=($null -eq $script:worker)
@@ -52,6 +57,7 @@ function Run-Action {
   if([Windows.MessageBox]::Show('Salvou seu trabalho? Os aplicativos selecionados receberão um pedido de fechamento.','Preparar partida','OKCancel','Information') -ne 'OK'){return}
  }
  $action=if($RequestedAction){$RequestedAction}elseif($script:active){'Desativar'}else{'Ativar'}
+ $script:runningAction=$action
  $apps=@();foreach($pair in @(@($Chrome,'chrome'),@($Edge,'msedge'),@($Discord,'discord'),@($Spotify,'spotify'))){if($pair[0].IsChecked){$apps+=$pair[1]}}
  Refresh
  $backend=$script:backendPath.Replace("'","''")
@@ -60,11 +66,15 @@ function Run-Action {
  $script:resultPath=$script:logPath+'.result'
  $quotedResult=$script:resultPath.Replace("'","''")
  $command="& '$backend' -Acao $action -NaoInterativo"
+ if($action -eq 'Ativar'){
+  $ownerProcess=[Diagnostics.Process]::GetCurrentProcess()
+  $command+=' -OwnerId '+$ownerProcess.Id+' -OwnerStarted '+$ownerProcess.StartTime.ToUniversalTime().Ticks.ToString()
+ }
  if(-not $RequestedAction){
   if($Sync.IsChecked){$command+=' -PausarOneDrive'}
-  if($Reopen.IsChecked){$command+=' -ReabrirApps'}
   if($apps.Count){$command+=' -FecharApps '+(($apps|ForEach-Object{"'$_'"}) -join ',')}
  }
+ if($action -eq 'Desativar' -and $Reopen.IsChecked -and $ExtraArguments -notmatch 'RecoveryOnly'){$command+=' -ReabrirApps'}
  if($ExtraArguments){$command+=' '+$ExtraArguments}
  $command="`$ErrorActionPreference='Stop'; `$code=0; try { $command *> '$quotedLog' } catch { `$_ | Out-String | Add-Content -LiteralPath '$quotedLog'; `$code=1 } finally { [IO.File]::WriteAllText('$quotedResult',[string]`$code) }; exit `$code"
  $encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
@@ -91,6 +101,12 @@ function Update-Operation {
    $script:worker.Dispose();$script:worker=$null
    if($script:targetFile){Remove-Item -LiteralPath $script:targetFile -ErrorAction SilentlyContinue;$script:targetFile=$null}
    $Reopen.IsEnabled=$true;Refresh
+   if($script:closeAfterRestore){
+    $script:closeAfterRestore=$false
+    if(-not $script:active){$window.Close()}
+    elseif($script:runningAction -ne 'Desativar'){Run-Action 'Desativar';$script:closeAfterRestore=$true}
+    else{if(-not $TestarCiclo){[Windows.MessageBox]::Show('A restauracao ficou pendente. A janela permanecera aberta; veja o checklist e tente novamente.','GameModz')|Out-Null}}
+   }
   }
  } catch {
   $Log.Text="Falha ao atualizar a interface: $_"
@@ -105,12 +121,29 @@ $timer.Interval=[TimeSpan]::FromMilliseconds(400)
 $timer.Add_Tick({
  try{Update-Hardware}catch{$Log.Text="Não foi possível atualizar o hardware: $_"}
  Update-Operation
+ if(-not $Verificar -and -not $TestarCiclo -and $script:active -and -not $script:worker){
+  try{
+   $saved=Get-Content $stateFile -Raw -Encoding UTF8|ConvertFrom-Json
+   if($saved.Mode -eq 'Active' -and $saved.Guard){
+    $guard=Get-Process -Id $saved.Guard.Id -ErrorAction SilentlyContinue
+    $healthy=$false
+    if($guard){try{$healthy=$guard.StartTime.ToUniversalTime().Ticks.ToString() -eq $saved.Guard.Started}finally{$guard.Dispose()}}
+    if(-not $healthy){$Log.Text='Protecao interrompida. Restaurando por seguranca.';Run-Action 'Desativar'}
+   }
+  }catch{$Log.Text='Falha na verificacao da protecao: '+$_}
+ }
  try{Update-Checklist;Update-Resources}catch{$Log.Text="Falha ao atualizar painel: $_"}
 })
+function Handle-WindowClosing($sender,$e){
+ if($script:worker){$e.Cancel=$true;$script:closeAfterRestore=$true;return}
+ if((Test-Path $stateFile) -or (Test-Path ($stateFile+'.bak'))){
+  $e.Cancel=$true;$script:closeAfterRestore=$true
+  try{Run-Action 'Desativar'}catch{$script:closeAfterRestore=$false;$Log.Text=$_.ToString()}
+ }
+}
 $window.Add_Closing({param($sender,$e)
  if($Verificar -or $TestarCiclo){return}
- if($script:worker){[Windows.MessageBox]::Show('Aguarde a operação terminar antes de fechar.','GameModz')|Out-Null;$e.Cancel=$true;return}
- if((Test-Path $stateFile) -and [Windows.MessageBox]::Show('Os ajustes continuam ativos. Fechar sem restaurar? Você poderá reabrir o GameModz para restaurar.','Modo ativo','YesNo','Question') -ne 'Yes'){$e.Cancel=$true}
+ Handle-WindowClosing $sender $e
 })
 . (Join-Path $root 'Interface.Helpers.ps1')
 . (Join-Path $root 'Interface.Session.ps1')
@@ -166,6 +199,27 @@ else{Remove-Item -LiteralPath $state;Write-Host 'Restauracao simulada'}
   while($script:worker -and $watch.ElapsedMilliseconds -lt 10000){Start-Sleep -Milliseconds 100;Update-Operation}
   if($script:worker -or $Log.Text -notmatch 'Prioridade simulada'){throw 'Selecao de aplicativo nao encaminhada.'}
   Write-Output 'PASS: botao de prioridade encaminha selecao por arquivo, sem alterar processos reais.'
+  $closeEvent=[ComponentModel.CancelEventArgs]::new()
+  Handle-WindowClosing $window $closeEvent
+  if(-not $closeEvent.Cancel -or -not $script:worker){throw 'Fechamento nao aguardou restauracao.'}
+  $watch=[Diagnostics.Stopwatch]::StartNew()
+  while($script:worker -and $watch.ElapsedMilliseconds -lt 10000){Start-Sleep -Milliseconds 100;Update-Operation}
+  if($script:worker -or (Test-Path $stateFile)){throw 'Fechamento nao restaurou estado.'}
+  Write-Output 'PASS: fechar a janela aguarda restauracao e remove estado antes de concluir.'
+  Set-Content -LiteralPath $stateFile -Value '{}';Set-Content -LiteralPath ($stateFile+'.fail') -Value 'test';Refresh
+  $closeEvent=[ComponentModel.CancelEventArgs]::new();Handle-WindowClosing $window $closeEvent
+  $watch=[Diagnostics.Stopwatch]::StartNew()
+  while($script:worker -and $watch.ElapsedMilliseconds -lt 10000){Start-Sleep -Milliseconds 100;Update-Operation}
+  if(-not(Test-Path $stateFile) -or $script:closeAfterRestore){throw 'Falha ao fechar perdeu estado ou deixou ciclo de fechamento ativo.'}
+  Write-Output 'PASS: falha ao restaurar durante fechamento preserva estado e permite nova tentativa.'
+  Remove-Item -LiteralPath ($stateFile+'.fail');Remove-Item -LiteralPath $stateFile
+  Refresh;Run-Action 'Ativar'
+  $closeEvent=[ComponentModel.CancelEventArgs]::new();Handle-WindowClosing $window $closeEvent
+  $watch=[Diagnostics.Stopwatch]::StartNew()
+  while($script:worker -and $watch.ElapsedMilliseconds -lt 10000){Start-Sleep -Milliseconds 100;Update-Operation}
+  if($script:worker -or (Test-Path $stateFile)){throw 'Fechar durante ativacao nao restaurou em seguida.'}
+  Write-Output 'PASS: fechar durante ativacao aguarda operacao e restaura em seguida.'
+
  }finally{
   if($script:hardwareJob){Remove-Job $script:hardwareJob -Force -ErrorAction SilentlyContinue}
   Get-ChildItem -LiteralPath $testBase -File|Remove-Item
@@ -174,6 +228,10 @@ else{Remove-Item -LiteralPath $state;Write-Host 'Restauracao simulada'}
  $window.Close();return
 }
 Refresh
+if(-not $Verificar -and $script:active){
+ # Recover leftovers before allowing a new activation; errors remain visible.
+ Run-Action 'Desativar' '-RecoveryOnly'
+}
 if($Verificar){
  if($script:hardwareJob){Wait-Job $script:hardwareJob -Timeout 12|Out-Null;Update-Hardware}
  $originalMotion=$Motion.IsChecked;$Motion.IsChecked=$true

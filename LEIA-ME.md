@@ -1,4 +1,6 @@
-# GameModz
+﻿# GameModz 1.1.0
+
+Protecoes e limites: [SAFETY.md](SAFETY.md). Versoes: [CHANGELOG.md](CHANGELOG.md).
 
 ## Checklist e aplicativos
 
@@ -8,7 +10,7 @@
 
 Nenhuma intervencao e automatica. Com o modo ativo, selecione um aplicativo compativel e escolha Reduzir prioridade ou Solicitar fechamento. Acoes permitidas: chrome, msedge, firefox, opera, brave, discord, spotify, wallpaper32, wallpaper64 e thunderbird. Outros programas aparecem como somente leitura. Processos em primeiro plano e de outra sessao sao recusados. O backend revalida PID, instante de criacao e caminho; nao depende apenas dos dados exibidos na tabela.
 
-Reduzir prioridade usa BelowNormal somente quando a prioridade original e Normal. A restauracao recupera o valor original no mesmo processo; se ele encerrou ou a prioridade foi alterada depois, preserva essa situacao. Aplicativos que ja estavam em BelowNormal nao sao assumidos pelo GameModz. O fechamento solicita CloseMainWindow e nunca mata processos; janelas podem recusar, e processos residentes podem continuar. O estado de prioridade fica salvo mesmo se a interface fechar: use Desativar e restaurar para desfazer. Restauracao automatica ao sair do jogo ainda nao foi implementada.
+Reduzir prioridade usa BelowNormal somente quando a prioridade original e Normal. A restauracao recupera o valor original no mesmo processo; se ele encerrou ou a prioridade foi alterada depois, preserva essa situacao. Aplicativos que ja estavam em BelowNormal nao sao assumidos pelo GameModz. O fechamento solicita CloseMainWindow e nunca mata processos; janelas podem recusar, e processos residentes podem continuar. Fechar a interface restaura automaticamente; sair apenas do jogo mantem o modo enquanto a interface estiver aberta. Consulte SAFETY.md para recuperacao apos falhas e desligamento.
 
 Testes: Test-Session.ps1 cobre repeticao isolada, restauracao parcial, migracao e prioridade em processo descartavel; Test-Monitor.ps1 verifica coleta real e encerramento; -TestarCiclo testa tambem o encaminhamento dos botoes novos com backend simulado. Esses testes nao medem ganho de FPS.
 
@@ -20,7 +22,7 @@ OneDrive: o pedido de encerramento espera no maximo 5 segundos pela saida do pro
 
 Validacoes: Test-OneDrive.ps1 testa encerramento e timeout com processos simulados. GameModz-UI.ps1 -TestarCiclo testa ativacao, restauracao e falha com backend simulado, sem modificar o computador. Os testes verificam que o botao volta a ficar disponivel.
 
-Abra **Abrir-GameModz.cmd** para usar a interface grafica WPF. Escolha as opcoes em Preferencias e use o unico botao principal para ativar ou restaurar. A janela pode ser fechada durante a partida; os ajustes permanecem ativos e podem ser restaurados ao reabrir. Ela avisa antes de fechar com ajustes ativos. O painel de atividade mostra o relatorio real do script. Reduzir movimento desliga as transicoes de navegacao. A restauracao e manual; nao ocorre automaticamente ao sair do jogo. As preferencias do aplicativo sao salvas ao fechar a janela.
+Abra **Abrir-GameModz.cmd** para usar a interface grafica WPF. Escolha as opcoes em Preferencias e use o unico botao principal para ativar ou restaurar. Fechar a janela aguarda a operacao atual e restaura antes de sair. Se houver falhas, mantem a janela e o snapshot disponiveis. O painel de atividade mostra o relatorio real do script. Reduzir movimento desliga as transicoes de navegacao. A restauracao ocorre ao fechar o GameModz, por botao e pelos mecanismos de recuperacao; sair apenas do jogo nao encerra o modo. As preferencias do aplicativo sao salvas ao fechar a janela.
 
 A versao clean usa controles nativos estilizados, sem pulsacao permanente. A arte anterior, gerada por image_gen, foi preservada em assets/power-core.png, com prompt em assets/PROMPT.md. CPU, GPU e memoria sao detectados uma vez, fora da interface, e exibidos no rodape. Nenhuma dependencia de navegador ou servico externo para ativar/restaurar. Os atalhos da pagina Melhorias abrem Configuracoes do Windows ou documentacao online.
 
@@ -35,15 +37,15 @@ Ao ativar: fundo preto, efeitos de interface reduzidos e transparencia desabilit
 Opcoes pelo terminal, na pasta do projeto:
 
 ```powershell
-.\GameModz.ps1 -Acao Ativar -AltoDesempenho -PausarOneDrive -FecharApps chrome,discord,spotify
+# Para ativar, abra GameModz.exe (a interface fornece a identidade do proprietario).
 .\GameModz.ps1 -Acao Desativar
 .\GameModz.ps1 -Acao Status
 ```
 
 O plano de energia atual e mantido para preservar o brilho. O parametro legado AltoDesempenho apenas informa essa restricao e nao troca o plano. OneDrive e encerrado pelo comando do proprio aplicativo e reiniciado ao restaurar, somente se estava rodando. Nao e uma pausa universal de downloads: Steam e outros launchers devem ter seus downloads pausados na propria interface.
 
-FecharApps e optativo: somente chrome, msedge, firefox, opera, brave, discord, spotify, wallpaper32 e wallpaper64. Envia um pedido normal de fechamento apenas para janelas visiveis; nao mata processos. Salve seu trabalho antes. Aplicativos residentes podem continuar na bandeja. A restauracao oferece reabri-los, mas nao recupera documentos, abas ou argumentos de inicializacao. Papel de parede animado so para se o aplicativo correspondente aceitar o pedido de fechamento. Temas em slideshow, Windows Spotlight e configuracoes individuais por monitor nao sao suportados integralmente: esta versao restaura o caminho do papel de parede estatico.
+FecharApps e optativo: somente chrome, msedge, firefox, opera, brave, discord, spotify, wallpaper32 e wallpaper64. Envia um pedido normal de fechamento apenas para janelas visiveis; nao mata processos. Salve seu trabalho antes. Aplicativos residentes podem continuar na bandeja. A restauracao oferece reabri-los, mas nao recupera documentos, abas ou argumentos de inicializacao. Papel de parede animado so para se o aplicativo correspondente aceitar o pedido de fechamento. Fundos dinamicos detectados e configuracoes com varios monitores sao preservados. Uma copia do wallpaper estatico permite restaurar se o original desaparecer.
 
-Se o computador reiniciar ou o script for interrompido, execute Desativar: o estado permanece salvo. A restauracao nao e automatica ao encerrar o jogo nesta versao. Nao altera firewall, antivirus, servicos, prioridades do jogo ou anticheat. Nao monitora FPS e nao promete aumento de desempenho.
+Se o computador reiniciar ou a interface for interrompida, o guardiao e a recuperacao no login tentam restaurar automaticamente. A reabertura do GameModz tambem inicia a restauracao pendente. Consulte SAFETY.md para limites e recuperacao manual. Nao altera firewall, antivirus, servicos, prioridades do jogo ou anticheat. Nao monitora FPS e nao promete aumento de desempenho.
 
 O GameModz nao ajusta brilho nem troca o plano de energia ao ativar. A opcao de alto desempenho foi retirada da interface. Estados antigos ainda podem restaurar seu plano original; novos estados nao ativam essa alteracao.

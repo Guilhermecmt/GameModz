@@ -5,16 +5,19 @@ function Write-JsonAtomic($Value,[string]$Path) {
  Move-Item -LiteralPath ($Path+'.tmp') -Destination $Path -Force
 }
 function Set-Step([string]$Id,[string]$Name,[string]$Status,[string]$Detail='', [string]$Phase='Ativar',[bool]$Retryable=$false) {
- $report=if(Test-Path $reportFile){Get-Content $reportFile -Raw|ConvertFrom-Json}else{[pscustomobject]@{Updated='';Steps=@()}}
+ try{$report=if(Test-Path $reportFile){Get-Content $reportFile -Raw -Encoding UTF8|ConvertFrom-Json}else{$null}}catch{$report=$null}
+ $valid=$null -ne $report -and $null -ne $report.PSObject.Properties['Steps'] -and $null -ne $report.PSObject.Properties['Updated']
+ if($valid){foreach($entry in @($report.Steps)){foreach($field in @('Id','Name','Status','Detail','Phase','Retryable')){if(-not $entry -or -not $entry.PSObject.Properties[$field]){$valid=$false}}}}
+ if(-not $valid){$report=[pscustomobject]@{Updated='';Steps=@()}}
  $step=@($report.Steps|Where-Object {$_.Id -eq $Id -and $_.Phase -eq $Phase})|Select-Object -First 1
  if(-not $step){$step=[pscustomobject]@{Id=$Id;Name=$Name;Status=$Status;Detail=$Detail;Phase=$Phase;Retryable=$Retryable};$report.Steps=@($report.Steps)+$step}
  $step.Name=$Name;$step.Status=$Status;$step.Detail=$Detail;$step.Retryable=$Retryable
- $report.Updated=(Get-Date).ToString('o');Write-JsonAtomic $report $reportFile
+ $report.Updated=(Get-Date).ToString('o');try{Write-JsonAtomic $report $reportFile}catch{Write-Warning ('Falha ao registrar checklist: '+$_)}
  Write-Host "$Name - $Status. $Detail"
 }
 function Read-State {
- if(-not(Test-Path $stateFile)){throw 'Ative o modo de jogo antes desta acao.'}
- $s=Get-Content $stateFile -Raw|ConvertFrom-Json
+ if(-not(Get-StatePresent)){throw 'Ative o modo de jogo antes desta acao.'}
+ $s=Read-DurableState
  foreach($name in @('Priorities','AppTargets')){if(-not $s.PSObject.Properties[$name]){$s|Add-Member -NotePropertyName $name -NotePropertyValue @()}}
  if(-not $s.PSObject.Properties['Mode']){$s|Add-Member NoteProperty Mode 'Active'}
  if(-not $s.PSObject.Properties['SyncRequested']){$s|Add-Member NoteProperty SyncRequested $false}
@@ -49,8 +52,11 @@ function Apply-One($s,[string]$Id) {
  $title=$titles[$Id];Set-Step $Id $title 'Aplicando'
  try{
   switch($Id){
-   Wallpaper {$s.Pending.Wallpaper=$true;Save-State $s;Wallpaper (Join-Path $base 'preto.bmp')}
-   Effects {$s.Pending.Effects=$true;Save-State $s;Effects $false}
+   Wallpaper {
+    if($s.PSObject.Properties['WallpaperSafe'] -and -not $s.WallpaperSafe){Set-Step $Id $title 'Preservada' 'Slideshow, Spotlight ou varios monitores: fundo preservado por seguranca.';return}
+    $s.Pending.Wallpaper=$true;Save-State $s;Wallpaper (Join-Path $base 'preto.bmp') $false
+   }
+   Effects {$s.Pending.Effects=$true;Save-State $s;Effects $false $false}
    Transparency {$s.Pending.Transparency=$true;Save-State $s;Set-TransparencyValue 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' 0}
    OneDrive {
     if(-not $s.SyncRequested){Set-Step $Id $title 'Ignorada' 'Opcao nao selecionada.';return}
@@ -69,14 +75,14 @@ function Apply-One($s,[string]$Id) {
  }catch{Set-Step $Id $title 'Falhou' $_.Exception.Message 'Ativar' $true}
 }
 function Activate {
- if(Test-Path $stateFile){throw 'Existe estado salvo. Restaure antes de ativar novamente.'}
+ if(Get-StatePresent){throw 'Existe estado salvo. Restaure antes de ativar novamente.'}
  $effects=0;if(-not[GMNative]::GetBool(0x103E,0,[ref]$effects,0)){throw 'Nao foi possivel ler os efeitos atuais.'}
  $trans=Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' -ErrorAction SilentlyContinue
  $wall=(Get-ItemProperty 'HKCU:\Control Panel\Desktop').WallPaper
  if($wall -and -not(Test-Path -LiteralPath $wall)){throw 'Papel de parede atual inacessivel; restauracao nao pode ser garantida.'}
  $od=if($PausarOneDrive){Get-Process OneDrive -ErrorAction SilentlyContinue|Where-Object {$_.SessionId -eq [Diagnostics.Process]::GetCurrentProcess().SessionId}|Select-Object -First 1}else{$null}
  $s=[pscustomobject]@{
-  Created=(Get-Date).ToString('o');Mode='Active';Wallpaper=[string]$wall;Effects=$effects
+  SchemaVersion=2;Owner=[pscustomobject]@{Id=$OwnerId;Started=$OwnerStarted};Guard=$null;WallpaperSafe=$true;WallpaperBackup='';Created=(Get-Date).ToString('o');Mode='Active';Wallpaper=[string]$wall;Effects=$effects
   TransparencyExists=($null -ne $trans -and $null -ne $trans.PSObject.Properties['EnableTransparency']);Transparency=$trans.EnableTransparency
   Power='';OneDrive=if($od){$od.Path}else{$null};OneDriveWasRunning=($null -ne $od);SyncRequested=[bool]$PausarOneDrive;ClosedApps=@();AppTargets=@();Priorities=@()
   Pending=[pscustomobject]@{Wallpaper=$false;Effects=$false;Transparency=$false;Power=$false;OneDrive=$false}
@@ -90,6 +96,25 @@ function Activate {
  Add-Type -AssemblyName System.Drawing
  $bmp=New-Object Drawing.Bitmap 8,8;$g=[Drawing.Graphics]::FromImage($bmp)
  try{$g.Clear([Drawing.Color]::Black);$bmp.Save((Join-Path $base 'preto.bmp'),[Drawing.Imaging.ImageFormat]::Bmp)}finally{$g.Dispose();$bmp.Dispose()}
+ # Preserve a static wallpaper copy before changing anything. Dynamic and multi-monitor
+ # backgrounds are left untouched because SPI cannot faithfully restore them.
+ Add-Type -AssemblyName System.Windows.Forms
+ $slideshow=Get-ItemProperty 'HKCU:\Control Panel\Personalization\Desktop Slideshow' -ErrorAction SilentlyContinue
+ $spotlight=Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\DesktopSpotlight\Settings' -ErrorAction SilentlyContinue
+ $background=Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Wallpapers' -ErrorAction SilentlyContinue
+ $theme=Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes' -ErrorAction SilentlyContinue
+ $themeDynamic=$false
+ if($theme.CurrentTheme -and (Test-Path -LiteralPath $theme.CurrentTheme)){$themeDynamic=[bool](Select-String -LiteralPath $theme.CurrentTheme -Pattern '^\[Slideshow\]' -Quiet)}
+ $animated=@(Get-Process wallpaper32,wallpaper64,lively -ErrorAction SilentlyContinue).Count -gt 0
+ # Unknown/non-default background modes are preserved conservatively.
+ $nonDefault=$background -and $background.PSObject.Properties['BackgroundType'] -and $background.BackgroundType -ne 0
+ $s.WallpaperSafe=(-not $animated -and -not $nonDefault -and [Windows.Forms.Screen]::AllScreens.Count -eq 1 -and -not $slideshow.SlideshowEnabled -and -not $spotlight.Enabled -and -not $themeDynamic)
+ if($wall -and $s.WallpaperSafe){
+  $s.WallpaperBackup=Join-Path $base ('wallpaper-original'+[IO.Path]::GetExtension($wall))
+  Copy-Item -LiteralPath $wall -Destination $s.WallpaperBackup -Force
+ }
+ Start-RecoveryGuard
+ $s.Guard=$script:guardIdentity
  Save-State $s
  Write-JsonAtomic ([pscustomobject]@{Updated=(Get-Date).ToString('o');Steps=@()}) $reportFile
  foreach($id in @('Wallpaper','Effects','Transparency','OneDrive')){Set-Step $id $id 'Aguardando'}
@@ -105,16 +130,22 @@ function Restore-One($s,[string]$Id) {
  Set-Step $Id $title 'Restaurando' '' 'Restaurar'
  try{
   switch -Wildcard ($Id){
-   'Wallpaper' {Wallpaper $s.Wallpaper;$s.Pending.Wallpaper=$false}
+   'Wallpaper' {
+    $original=$s.Wallpaper
+    if($original -and -not(Test-Path -LiteralPath $original) -and $s.WallpaperBackup){$original=$s.WallpaperBackup}
+    if($original -and -not(Test-Path -LiteralPath $original)){throw 'Imagem original e copia de seguranca inacessiveis.'}
+    Wallpaper $original;$s.Pending.Wallpaper=$false
+   }
    'Effects' {Effects ([bool]$s.Effects);$s.Pending.Effects=$false}
    'Transparency' {
     $key='HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize'
     if($s.TransparencyExists){Set-TransparencyValue $key ([int]$s.Transparency)}
-    else{Remove-ItemProperty -Path $key -Name EnableTransparency -ErrorAction SilentlyContinue}
+    elseif((Get-ItemProperty -LiteralPath $key -ErrorAction Stop).PSObject.Properties['EnableTransparency']){Remove-ItemProperty -LiteralPath $key -Name EnableTransparency -ErrorAction Stop}
     $s.Pending.Transparency=$false
    }
    'Power' {& powercfg.exe /setactive $s.Power;if($LASTEXITCODE -ne 0){throw 'Falha ao restaurar plano legado.'};$s.Pending.Power=$false}
    'OneDrive' {
+    if($ShutdownRecovery){Set-Step $Id $title 'Adiada' 'Reabertura adiada para o proximo login; nenhuma abertura durante desligamento.' 'Restaurar' $true;return}
     Start-Process -FilePath $s.OneDrive -ArgumentList '/background'
     $watch=[Diagnostics.Stopwatch]::StartNew();$confirmed=$false
     while($watch.ElapsedMilliseconds -lt 5000){
@@ -145,21 +176,27 @@ function Restore-One($s,[string]$Id) {
 }
 function Complete-Restore($s) {
  $pending=@($s.Pending.PSObject.Properties|Where-Object {$_.Value -eq $true}).Count -gt 0
- if(-not $pending -and @($s.Priorities).Count -eq 0 -and @($s.ClosedApps).Count -eq 0){Remove-Item -LiteralPath $stateFile;Write-Host 'Restauracao concluida.'}
+ if(-not $pending -and @($s.Priorities).Count -eq 0 -and @($s.ClosedApps).Count -eq 0){Remove-Item -LiteralPath ($stateFile+'.bak') -ErrorAction SilentlyContinue;Remove-Item -LiteralPath $stateFile -ErrorAction SilentlyContinue;
+  if(Get-Command Remove-RecoveryRegistration -ErrorAction SilentlyContinue){try{Remove-RecoveryRegistration}catch{Write-Warning 'Registro de login sera limpo na proxima abertura.'}}
+  Write-Host 'Restauracao concluida.'}
  else{Write-Warning 'Existem itens pendentes. Use o checklist para repetir apenas o item que falhou.'}
 }
 function Restore {
- if(-not(Test-Path $stateFile)){Write-Host 'Nenhuma restauracao pendente.';return}
- $s=Read-State;$s.Mode='Restoring';Save-State $s
+ $script:recoverySkipped=$false
+ if(-not(Get-StatePresent)){if(Get-Command Remove-RecoveryRegistration -ErrorAction SilentlyContinue){Remove-RecoveryRegistration};Write-Host 'Nenhuma restauracao pendente.';return}
+ $s=Read-State
+ # Check under the backend mutex: a delayed login worker must not undo a new session.
+ if($RecoveryOnly -and -not $ShutdownRecovery -and (Test-StateOwnerAlive $s)){$script:recoverySkipped=$true;Write-Host 'Sessao com proprietario vivo preservada.';return}
+ $s.Mode='Restoring';Save-State $s
  foreach($id in @('Wallpaper','Effects','Transparency','Power','OneDrive')){if($s.Pending.$id){Restore-One $s $id}}
  foreach($entry in @($s.Priorities)){Restore-One $s $entry.Key}
- $reopen=$ReabrirApps
+ $reopen=$ReabrirApps -and -not $RecoveryOnly
  if(-not $NaoInterativo -and @($s.ClosedApps).Count){$reopen=(Read-Host 'Reabrir aplicativos fechados? [s/N]') -eq 's'}
  if($reopen){
   $index=0;foreach($entry in @($s.ClosedApps)){if(-not $entry.PSObject.Properties['Key']){$entry|Add-Member NoteProperty Key ('Reopen.'+$index)};$index++}
   Save-State $s
   foreach($entry in @($s.ClosedApps)){Restore-One $s $entry.Key}
- }else{$s.ClosedApps=@();Save-State $s}
+ }elseif(-not $ShutdownRecovery){$s.ClosedApps=@();Save-State $s}
  Complete-Restore $s
 }
 function Retry-Step([string]$Id) {

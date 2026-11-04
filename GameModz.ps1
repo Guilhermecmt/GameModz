@@ -6,7 +6,11 @@
     [switch]$NaoInterativo,
     [switch]$ReabrirApps,
     [string]$Item,
-    [string]$AlvoFile
+    [string]$AlvoFile,
+    [int]$OwnerId=0,
+    [string]$OwnerStarted,
+    [switch]$RecoveryOnly,
+    [switch]$ShutdownRecovery
 )
 $ErrorActionPreference = 'Stop'
 $base = Join-Path $env:LOCALAPPDATA 'GameModz'
@@ -21,16 +25,13 @@ public class GMNative {
  [DllImport("user32.dll", EntryPoint="SystemParametersInfoW")] public static extern bool SetBool(uint a, uint b, IntPtr c, uint d);
 }
 '@
-function Save-State($s) {
-    $temp = "$stateFile.tmp"
-    $s | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $temp -Encoding UTF8
-    Move-Item -LiteralPath $temp -Destination $stateFile -Force
+. (Join-Path $PSScriptRoot 'Safety.ps1')
+function Save-State($s) { Write-DurableState $s }
+function Wallpaper($path,[bool]$Persist=$true) {
+    if (-not [GMNative]::SystemParametersInfo(20,0,$path,$(if($Persist){3}else{2}))) { throw 'Nao foi possivel alterar o papel de parede.' }
 }
-function Wallpaper($path) {
-    if (-not [GMNative]::SystemParametersInfo(20,0,$path,3)) { throw 'Nao foi possivel alterar o papel de parede.' }
-}
-function Effects([bool]$enabled) {
-    if (-not [GMNative]::SetBool(0x103F,0,[IntPtr]([int]$enabled),3)) { throw 'Nao foi possivel alterar os efeitos visuais.' }
+function Effects([bool]$enabled,[bool]$Persist=$true) {
+    if (-not [GMNative]::SetBool(0x103F,0,[IntPtr]([int]$enabled),$(if($Persist){3}else{2}))) { throw 'Nao foi possivel alterar os efeitos visuais.' }
 }
 function Set-TransparencyValue([string]$Key,[int]$Value) {
     # New-Item -Force em uma chave existente apaga outras preferencias, inclusive o tema.
@@ -50,10 +51,11 @@ function Request-OneDriveShutdown([string]$Executable,[int]$OriginalProcessId,[i
     } finally { if ($launcher) { $launcher.Dispose() } }
 }
 . (Join-Path $PSScriptRoot 'Engine.ps1')
-$mutex = New-Object System.Threading.Mutex($false,'Local\GameModzScript')
+$mutexName='Global\GameModzScript-'+[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+$mutex = New-Object System.Threading.Mutex($false,$mutexName)
 $locked = $false
 try {
-    try { $locked = $mutex.WaitOne(0) } catch [System.Threading.AbandonedMutexException] { $locked=$true }
+    try { $locked = $mutex.WaitOne($(if($Acao -eq 'Desativar'){30000}else{0})) } catch [System.Threading.AbandonedMutexException] { $locked=$true }
     if (-not $locked) { throw 'Outra instancia do GameModz esta aberta.' }
     if ($Acao -eq 'Menu') {
         Write-Host 'GameModz | 1 - Ativar | 2 - Desativar/restaurar | 3 - Status'
@@ -66,12 +68,12 @@ try {
     }
     switch ($Acao) {
         Ativar { Activate }
-        Desativar { Restore }
+        Desativar { Restore; if((Get-StatePresent) -and -not $script:recoverySkipped){throw 'Restauracao incompleta. Snapshot e recuperacao no login foram preservados.'} }
         TentarNovamente { Retry-Step $Item }
         ReduzirPrioridade { Invoke-ProcessAction 'ReduzirPrioridade' $AlvoFile }
         FecharProcesso { Invoke-ProcessAction 'FecharProcesso' $AlvoFile }
         Status {
-            if (Test-Path -LiteralPath $stateFile) { Write-Host 'Modo ativo ou restauracao pendente:'; Get-Content -LiteralPath $stateFile }
+            if (Get-StatePresent) { Write-Host 'Modo ativo ou restauracao pendente:'; Read-State | ConvertTo-Json -Depth 12 }
             else { Write-Host 'Modo desligado. Nenhuma restauracao pendente.' }
         }
     }
