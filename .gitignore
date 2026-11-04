@@ -1,0 +1,23 @@
+# Estado local e credenciais
+.env
+.env.*
+estado.json
+checklist.json
+preferencias.json
+hardware.json
+*.log
+*.log.result
+*.tmp
+*.lnk
+
+# Capturas locais podem conter informacoes da maquina e aplicativos
+preview*.png
+GameModz-UI-v1.ps1
+
+# IDE e compilacao temporaria
+.vs/
+.vscode/
+obj/
+bin/
+*.pdb
+*.user

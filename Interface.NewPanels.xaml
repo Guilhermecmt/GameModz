@@ -1,0 +1,18 @@
+    <Grid x:Name="ChecklistPage" Visibility="Collapsed" Margin="0,4,0,12">
+     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+     <DockPanel Margin="0,0,0,14"><Button x:Name="RetryItem" DockPanel.Dock="Right" Content="Repetir item selecionado" IsEnabled="False"/><TextBlock x:Name="ChecklistHint" Text="Cada etapa mostra o resultado real da operação." Style="{StaticResource Muted}" Margin="0,0,15,0" VerticalAlignment="Center"/></DockPanel>
+     <DataGrid x:Name="ChecklistGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single" SelectionUnit="FullRow" HeadersVisibility="Column" GridLinesVisibility="None" Background="White" BorderBrush="#E4E6EA" RowBackground="White" AlternatingRowBackground="#F7F9FB" RowHeight="42" FontSize="12" HorizontalScrollBarVisibility="Auto">
+      <DataGrid.Columns><DataGridTextColumn Header="Operação" Binding="{Binding Name}" Width="*"/><DataGridTextColumn Header="Fase" Binding="{Binding Phase}" Width="85"/><DataGridTextColumn Header="Resultado" Binding="{Binding Status}" Width="145"/></DataGrid.Columns>
+      <DataGrid.RowStyle><Style TargetType="DataGridRow"><Style.Triggers><DataTrigger Binding="{Binding Status}" Value="Falhou"><Setter Property="Foreground" Value="#B33838"/></DataTrigger><DataTrigger Binding="{Binding Status}" Value="Não respondeu"><Setter Property="Foreground" Value="#996A16"/></DataTrigger></Style.Triggers></Style></DataGrid.RowStyle>
+     </DataGrid>
+     <Border Grid.Row="2" Background="#EAF0FC" CornerRadius="10" Padding="14" Margin="0,12,0,0"><TextBlock x:Name="StepDetail" Text="Selecione uma etapa para ver detalhes. A repetição não refaz as etapas concluídas." Foreground="#53647E" FontSize="12"/></Border>
+    </Grid>
+    <Grid x:Name="ResourcesPage" Visibility="Collapsed" Margin="0,4,0,12">
+     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+     <TextBlock x:Name="MonitorHint" Text="Amostras a cada 2 s. Alerta após 3 amostras: CPU ≥ 5% ou RAM ≥ 512 MB. RAM é a soma aproximada do conjunto de trabalho." Style="{StaticResource Muted}" Margin="0,0,0,14"/>
+     <DataGrid x:Name="ResourceGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single" SelectionUnit="FullRow" HeadersVisibility="Column" GridLinesVisibility="None" Background="White" BorderBrush="#E4E6EA" RowBackground="White" AlternatingRowBackground="#F7F9FB" RowHeight="42" FontSize="12">
+      <DataGrid.Columns><DataGridTextColumn Header="Aplicativo" Binding="{Binding Name}" Width="*"/><DataGridTextColumn Header="CPU %" Binding="{Binding Cpu}" Width="70"/><DataGridTextColumn Header="RAM MB" Binding="{Binding Ram}" Width="80"/><DataGridTextColumn Header="Observação" Binding="{Binding Status}" Width="160"/></DataGrid.Columns>
+     </DataGrid>
+     <TextBlock x:Name="ResourceDetail" Grid.Row="2" Text="Ative o modo de jogo para usar ações nos aplicativos compatíveis. Nenhum processo é alterado automaticamente." Style="{StaticResource Muted}" Margin="0,12,0,10"/>
+     <WrapPanel Grid.Row="3"><Button x:Name="LowerPriority" Content="Reduzir prioridade" IsEnabled="False" Margin="0,0,10,0"/><Button x:Name="CloseSelectedApp" Content="Solicitar fechamento" IsEnabled="False"/></WrapPanel>
+    </Grid>
