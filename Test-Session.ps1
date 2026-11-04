@@ -52,6 +52,8 @@ try {
  if($LASTEXITCODE -ne 0){throw 'Falha ao criar fixture.'}
  $fixture=Start-Process -FilePath $exe -PassThru
  Start-Sleep -Milliseconds 200
+ # Runners de CI iniciam processos abaixo do normal; o cenario testado parte da prioridade Normal.
+ $fixture.PriorityClass=[Diagnostics.ProcessPriorityClass]::Normal
  $identity=Get-ProcessIdentity $fixture
  $target=Join-Path $testRoot 'target.json';@($identity)|ConvertTo-Json|Set-Content $target
  $original=$fixture.PriorityClass.ToString()
