@@ -1,5 +1,11 @@
 # Histórico de versões
 
+## 1.3.1 — 2026-11-04
+
+- OneDrive e aplicativos reabertos na restauração passam a iniciar na pasta do próprio aplicativo. Antes herdavam a pasta do GameModz como diretório atual e a deixavam presa, impedindo mover, atualizar ou desinstalar o programa.
+- Teste de regressão: todo `Start-Process` do `Engine.ps1` precisa informar `-WorkingDirectory`.
+- Teste de prioridade fixa o processo de teste em Normal, para rodar também no GitHub Actions.
+
 ## 1.3.0 — 2026-11-04
 
 - O repositório não guarda mais o `GameModz.exe`. O instalador compila o lançador a partir de `Launcher.cs` com o compilador C# do .NET Framework, então o executável instalado corresponde ao código publicado.

@@ -1,5 +1,12 @@
 ﻿. (Join-Path $PSScriptRoot 'Process.Common.ps1')
 $reportFile=Join-Path $base 'checklist.json'
+# Apps reabertos nao devem herdar a pasta do GameModz como diretorio atual:
+# isso prende a pasta e impede atualizar, mover ou desinstalar o programa.
+function Get-LaunchDirectory([string]$Path) {
+ try{$dir=Split-Path -Parent $Path}catch{$dir=$null}
+ if($dir -and (Test-Path -LiteralPath $dir -PathType Container)){return $dir}
+ return $env:USERPROFILE
+}
 function Write-JsonAtomic($Value,[string]$Path) {
  $Value|ConvertTo-Json -Depth 12|Set-Content -LiteralPath ($Path+'.tmp') -Encoding UTF8
  Move-Item -LiteralPath ($Path+'.tmp') -Destination $Path -Force
@@ -146,7 +153,7 @@ function Restore-One($s,[string]$Id) {
    'Power' {& powercfg.exe /setactive $s.Power;if($LASTEXITCODE -ne 0){throw 'Falha ao restaurar plano legado.'};$s.Pending.Power=$false}
    'OneDrive' {
     if($ShutdownRecovery){Set-Step $Id $title 'Adiada' 'Reabertura adiada para o proximo login; nenhuma abertura durante desligamento.' 'Restaurar' $true;return}
-    Start-Process -FilePath $s.OneDrive -ArgumentList '/background'
+    Start-Process -FilePath $s.OneDrive -ArgumentList '/background' -WorkingDirectory (Get-LaunchDirectory $s.OneDrive)
     $watch=[Diagnostics.Stopwatch]::StartNew();$confirmed=$false
     while($watch.ElapsedMilliseconds -lt 5000){
      $running=Get-Process OneDrive -ErrorAction SilentlyContinue|Where-Object {$_.SessionId -eq [Diagnostics.Process]::GetCurrentProcess().SessionId -and $_.Path -ieq $s.OneDrive}|Select-Object -First 1
@@ -167,7 +174,7 @@ function Restore-One($s,[string]$Id) {
    }
    'Reopen.*' {
     $index=[int]$Id.Substring(7);$entry=$s.ClosedApps|Where-Object {$_.Key -eq $Id}|Select-Object -First 1
-    if($entry){Start-Process -FilePath $entry.Path;$s.ClosedApps=@($s.ClosedApps|Where-Object {$_.Key -ne $Id});$detail='Abertura solicitada. Abas e documentos dependem do aplicativo.'}
+    if($entry){Start-Process -FilePath $entry.Path -WorkingDirectory (Get-LaunchDirectory $entry.Path);$s.ClosedApps=@($s.ClosedApps|Where-Object {$_.Key -ne $Id});$detail='Abertura solicitada. Abas e documentos dependem do aplicativo.'}
    }
    default {throw 'Item de restauracao invalido.'}
   }
