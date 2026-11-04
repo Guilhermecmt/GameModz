@@ -28,6 +28,8 @@ Não se deve prometer garantia absoluta diante dessas condições. Os testes sim
 
 ## Recuperação manual
 
+O instalador e o desinstalador também adquirem os mutexes da interface e do backend e recusam operar com snapshot pendente, inclusive quando só existe `estado.json.bak`. A atualização prepara uma cópia separada, preserva a instalação anterior durante a troca e tenta restaurá-la se os atalhos falharem. Só substitui uma instalação com manifesto reconhecido; caminhos de destino e links de diretório são verificados antes de remover arquivos. A desinstalação preserva `%LOCALAPPDATA%\GameModz` e só remove atalhos cujo destino ainda pertence ao programa.
+
 Reabra o GameModz; uma restauração pendente começa automaticamente. Alternativamente:
 
 ```powershell

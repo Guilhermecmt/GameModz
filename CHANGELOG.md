@@ -1,5 +1,14 @@
 # Histórico de versões
 
+## 1.2.0 — 2026-11-04
+
+- Instalador por usuário via `Install.cmd` ou PowerShell, sem administrador, Git ou compilação.
+- Instalação/atualização em `%LOCALAPPDATA%\Programs\GameModz` e atalhos automáticos na área de trabalho e no menu Iniciar.
+- Download de versão identificada por tag, validação de pacote e cópia somente dos arquivos necessários.
+- Atualização com staging e rollback; bloqueio com aplicativo aberto ou restauração pendente.
+- Desinstalação que preserva preferências, recuperação e atalhos substituídos por outro programa.
+- README reorganizado e testes isolados do instalador e desinstalador.
+
 ## 1.1.0 — 2026-11-04
 
 - Restauração automática ao fechar a janela, inclusive quando o fechamento é solicitado durante uma operação. Falhas mantêm a janela e o snapshot disponíveis.
