@@ -35,8 +35,10 @@ try {
  }
  if($LoginRecovery -and -not(State-Present)){Recover}
  for($attempt=0;$attempt -lt 3 -and (State-Present);$attempt++){
-  Recover
-  if(State-Present){Start-Sleep -Seconds 2}
+  # Native stderr is a terminating error under Windows PowerShell with Stop.
+  # Catch each attempt so a transient backend failure cannot skip the rest.
+  try{Recover}catch{try{$_|Out-String|Add-Content -LiteralPath (Join-Path $base 'recovery.log')}catch{}}
+  if($attempt -lt 2 -and (State-Present)){Start-Sleep -Seconds 2}
  }
 } catch {$_|Out-String|Add-Content -LiteralPath (Join-Path $base 'recovery.log')}
 finally{if('GMSessionGuard' -as [type]){[GMSessionGuard]::Uninstall()}}

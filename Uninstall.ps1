@@ -5,6 +5,7 @@ $ErrorActionPreference='Stop'
 $locked=$false
 try{
  Enter-InstallLock;$locked=$true
+ Repair-InstallTransaction
  if(-not(Test-Path -LiteralPath $script:installDirectory)){Write-Host 'GameModz nao esta instalado neste perfil.';return}
  $manifest=Get-InstallManifest $script:installDirectory
  $exe=Join-Path $script:installDirectory 'GameModz.exe'

@@ -22,6 +22,8 @@ Na recuperação automática de falha/login, aplicativos fechados não são reab
 
 ## Limites verificáveis
 
+Desde a versão 1.2.1, erros do backend são tratados individualmente dentro das três tentativas do guardião. O instalador grava `.GameModz-transaction.json` em `%LOCALAPPDATA%\Programs` antes de mover a instalação anterior; após um encerramento abrupto, a próxima execução do instalador recupera os diretórios e atalhos antes de continuar. O registro é removido somente depois da recuperação ou limpeza concluída. Isso não executa código durante falta de energia: é necessário executar o instalador novamente.
+
 Falta de energia, desligamento forçado, falha de disco, exclusão das duas cópias, bloqueio do PowerShell e desativação da entrada de inicialização pelo usuário/Windows impedem garantir restauração imediata. A recuperação ocorre no login seguinte quando os arquivos, permissões e execução estiverem disponíveis. A inscrição em `Run` pode ocorrer depois de a área de trabalho aparecer. O programa não modifica políticas de segurança para contornar bloqueios.
 
 Não se deve prometer garantia absoluta diante dessas condições. Os testes simulam falhas sem reiniciar nem desligar o computador. O callback real de encerramento é invocado com backend descartável; isso valida o encaminhamento, mas não substitui uma prova de desligamento real em uma VM.

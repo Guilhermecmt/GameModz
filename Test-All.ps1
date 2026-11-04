@@ -5,7 +5,7 @@ Get-ChildItem -LiteralPath $PSScriptRoot -Filter *.ps1|ForEach-Object {
  [void][Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$tokens,[ref]$parseErrors)
  if($parseErrors.Count){throw ($parseErrors|Out-String)}
 }
-foreach($name in @('Test-Appearance.ps1','Test-OneDrive.ps1','Test-Session.ps1','Test-Monitor.ps1','Test-Safety.ps1','Test-Installer.ps1')){
+foreach($name in @('Test-Appearance.ps1','Test-OneDrive.ps1','Test-Session.ps1','Test-Monitor.ps1','Test-Safety.ps1','Test-Installer.ps1','Test-Interruptions.ps1')){
  & powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot $name)
  if($LASTEXITCODE -ne 0){throw ('Falhou: '+$name)}
 }

@@ -1,5 +1,12 @@
 # Histórico de versões
 
+## 1.2.1 — 2026-11-04
+
+- Recuperação automática agora trata erros por tentativa: uma falha do backend não interrompe as três tentativas previstas, e snapshots pendentes são preservados.
+- Instalador grava um registro durável antes de trocar os diretórios. Na próxima execução do instalador, uma atualização interrompida é desfeita; transações já concluídas apenas finalizam a limpeza.
+- O desinstalador também resolve transações pendentes antes da remoção.
+- Novos testes encerram de fato o processo de instalação antes/depois da promoção e verificam recuperação idempotente; testes do guardião cobrem erro transitório e três falhas consecutivas.
+
 ## 1.2.0 — 2026-11-04
 
 - Instalador por usuário via `Install.cmd` ou PowerShell, sem administrador, Git ou compilação.

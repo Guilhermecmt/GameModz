@@ -1,6 +1,6 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
- [ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='1.2.0',
+ [ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='1.2.1',
  [string]$SourcePath,
  [string]$DesktopDirectory=[Environment]::GetFolderPath('DesktopDirectory'),
  [string]$StartMenuDirectory=[Environment]::GetFolderPath('Programs')
@@ -39,6 +39,7 @@ try{
  if($packageVersion -notmatch '^\d+\.\d+\.\d+$'){throw 'Versao invalida no pacote.'}
  . (Join-Path $SourcePath 'Installer.Common.ps1')
  Enter-InstallLock;$locked=$true
+ Repair-InstallTransaction
  [void](Assert-ManagedDirectory $script:installDirectory)
  if(Test-Path -LiteralPath $script:installDirectory){[void](Get-InstallManifest $script:installDirectory)}
  if(-not $DesktopDirectory -or -not $StartMenuDirectory){throw 'O Windows nao informou o local dos atalhos.'}
@@ -55,26 +56,29 @@ try{
  foreach($file in $files){Copy-Item -LiteralPath (Join-Path $SourcePath $file) -Destination (Join-Path $stage $file) -Force;Unblock-File -LiteralPath (Join-Path $stage $file)}
  $manifest=[ordered]@{Product='GameModz';InstallerSchema=1;Version=$packageVersion;InstallDirectory=$script:installDirectory;DesktopShortcut=$desktopLink;MenuShortcut=$menuLink;UninstallShortcut=$uninstallLink;Installed=(Get-Date).ToString('o')}
  $manifest|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $stage $script:installMarker) -Encoding UTF8
- if(Test-Path -LiteralPath $script:installDirectory){
-  $backup=Join-Path $script:installParent ('GameModz.backup-'+[guid]::NewGuid().ToString('N'))
-  [void](Assert-ManagedDirectory $backup);Move-Item -LiteralPath $script:installDirectory -Destination $backup
- }
+ $hadPrevious=Test-Path -LiteralPath $script:installDirectory
+ if($hadPrevious){$backup=Join-Path $script:installParent ('GameModz.backup-'+[guid]::NewGuid().ToString('N'));[void](Assert-ManagedDirectory $backup)}
+ $links=@(foreach($link in $shortcutBackups.Keys){[pscustomobject]@{Path=$link;Existed=($null -ne $shortcutBackups[$link]);Bytes=if($null -ne $shortcutBackups[$link]){[Convert]::ToBase64String($shortcutBackups[$link])}else{''}}})
+ $transaction=[pscustomobject]@{Product='GameModz';Schema=1;Stage=$stage;Backup=$backup;HadPrevious=[bool]$hadPrevious;Committed=$false;Shortcuts=$links}
+ Write-InstallTransaction $transaction
+ if($hadPrevious){Move-Item -LiteralPath $script:installDirectory -Destination $backup}
  [void](Assert-ManagedDirectory $stage);Move-Item -LiteralPath $stage -Destination $script:installDirectory;$stage=$null;$promoted=$true
  $exe=Join-Path $script:installDirectory 'GameModz.exe'
  Set-GameModzShortcut $desktopLink $exe;Set-GameModzShortcut $menuLink $exe
  $hostPath=Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
  Set-GameModzShortcut $uninstallLink $hostPath ('-NoProfile -ExecutionPolicy Bypass -File "'+(Join-Path $script:installDirectory 'Uninstall.ps1')+'"')
+ $transaction.Committed=$true
+ Write-InstallTransaction $transaction
+ Repair-InstallTransaction
+ $backup=$null
 }catch{
  $failure=$_
- if($promoted){Remove-ManagedDirectory $script:installDirectory}
- if($backup -and (Test-Path -LiteralPath $backup)){[void](Assert-ManagedDirectory $backup);Move-Item -LiteralPath $backup -Destination $script:installDirectory;$backup=$null}
- foreach($link in $shortcutBackups.Keys){
-  if($null -eq $shortcutBackups[$link]){Remove-Item -LiteralPath $link -ErrorAction SilentlyContinue}
-  else{[IO.File]::WriteAllBytes($link,$shortcutBackups[$link])}
+ if($locked -and (Test-Path -LiteralPath $script:transactionPath)){
+  try{Repair-InstallTransaction;$stage=$null;$backup=$null}catch{Write-Warning ('Recuperacao pendente; execute o instalador novamente. '+$_)}
  }
  throw $failure
 }finally{
- if($stage -and (Test-Path -LiteralPath $stage)){Remove-ManagedDirectory $stage}
+ if($stage -and -not(Test-Path -LiteralPath $script:transactionPath) -and (Test-Path -LiteralPath $stage)){Remove-ManagedDirectory $stage}
  if($locked){Exit-InstallLock}
  if($downloadRoot -and (Test-Path -LiteralPath $downloadRoot)){
   $full=[IO.Path]::GetFullPath($downloadRoot)

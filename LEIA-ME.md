@@ -1,4 +1,4 @@
-﻿# GameModz 1.2.0
+﻿# GameModz 1.2.1
 
 Instalacao: extraia o ZIP e execute Install.cmd. Tambem pode usar powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1. Cria atalhos na area de trabalho e menu Iniciar; detalhes e comando de download no README.
 

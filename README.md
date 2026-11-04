@@ -2,7 +2,7 @@
 
 **Prepare o Windows para jogar e recupere suas configurações ao terminar.**
 
-**Versão 1.2.0 · Windows · Instalação sem administrador**
+**Versão 1.2.1 · Windows · Instalação sem administrador**
 
 GameModz é um utilitário com interface gráfica para ajustar temporariamente a aparência do Windows, reduzir distrações e acompanhar o uso de recursos. Salva o estado anterior e restaura os ajustes ao fechar a janela. Não promete aumento de FPS e não altera antivírus, firewall, serviços, jogos ou anticheats.
 
@@ -12,7 +12,7 @@ A instalação é por usuário e **cria automaticamente um atalho na área de tr
 
 ### Opção 1 — baixar e clicar
 
-1. [Baixe o GameModz 1.2.0 em ZIP](https://github.com/Guilhermecmt/GameModz/archive/refs/tags/v1.2.0.zip).
+1. [Baixe o GameModz 1.2.1 em ZIP](https://github.com/Guilhermecmt/GameModz/archive/refs/tags/v1.2.1.zip).
 2. Clique com o botão direito no ZIP e escolha **Extrair tudo**.
 3. Na pasta extraída, dê dois cliques em **`Install.cmd`**.
 4. Aguarde a confirmação e abra **GameModz** pelo atalho da área de trabalho.
@@ -25,11 +25,11 @@ Abra o **PowerShell**, sem executar como administrador, e cole:
 
 ```powershell
 $instalador = Join-Path $env:TEMP 'GameModz-Install.ps1'
-Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Guilhermecmt/GameModz/v1.2.0/Install.ps1' -OutFile $instalador -UseBasicParsing
+Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Guilhermecmt/GameModz/v1.2.1/Install.ps1' -OutFile $instalador -UseBasicParsing
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File $instalador
 ```
 
-O script baixa o pacote da tag **`v1.2.0`**, valida sua estrutura, instala os arquivos e cria os atalhos. Você pode [ler o instalador antes de executar](Install.ps1). `ExecutionPolicy Bypass` vale somente para esse processo; a instalação não altera a política permanente da máquina.
+O script baixa o pacote da tag **`v1.2.1`**, valida sua estrutura, instala os arquivos e cria os atalhos. Você pode [ler o instalador antes de executar](Install.ps1). `ExecutionPolicy Bypass` vale somente para esse processo; a instalação não altera a política permanente da máquina.
 
 ### A partir de uma cópia local
 
@@ -95,6 +95,8 @@ As sugestões da página **Melhorias de FPS** abrem configurações ou documenta
 Desative o modo, feche o GameModz e execute o instalador da versão desejada. Ele substitui o programa e preserva preferências e recuperação. Não existe atualização automática em segundo plano.
 
 A nova cópia é preparada antes de trocar a anterior. Se a instalação falhar, o instalador tenta desfazer a troca. Pastas desconhecidas, sem o manifesto do GameModz, não são sobrescritas. Instalação, atualização e remoção são bloqueadas com a interface aberta ou restauração pendente.
+
+Se o computador ou o processo de instalação encerrar durante a troca, execute o instalador novamente. Um registro persistente permite recuperar a instalação anterior antes de continuar. Não apague as pastas `GameModz.backup-*`, `GameModz.stage-*` ou o arquivo `.GameModz-transaction.json` enquanto houver recuperação pendente.
 
 ## Desinstalar
 
