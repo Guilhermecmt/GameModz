@@ -1,0 +1,20 @@
+name: Windows validation
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse scripts, run regressions and build the launcher
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File .\Test-All.ps1 -Build
+          if($LASTEXITCODE -ne 0){throw 'Test-All failed'}

@@ -11,7 +11,7 @@ function Write-InstallTransaction($Value) {
  if(Test-Path -LiteralPath $script:transactionPath){[IO.File]::Replace($temp,$script:transactionPath,($script:transactionPath+'.bak'))}
  else{[IO.File]::Move($temp,$script:transactionPath)}
 }
-function Repair-InstallTransaction {
+function Repair-InstallTransaction([switch]$Quiet) {
  if(-not(Test-Path -LiteralPath $script:transactionPath)){return}
  $tx=Get-Content -LiteralPath $script:transactionPath -Raw -Encoding UTF8|ConvertFrom-Json
  if($tx.Product -cne 'GameModz' -or $tx.Schema -ne 1 -or $tx.Committed -isnot [bool] -or $tx.HadPrevious -isnot [bool]){throw 'Registro de instalacao invalido. Arquivos preservados.'}
@@ -43,7 +43,7 @@ function Repair-InstallTransaction {
  if(Test-Path -LiteralPath $stage){Remove-ManagedDirectory $stage}
  Remove-Item -LiteralPath $script:transactionPath -Force
  Remove-Item -LiteralPath ($script:transactionPath+'.bak') -Force -ErrorAction SilentlyContinue
- Write-Host 'Registro da instalacao anterior recuperado.'
+ if(-not $Quiet){Write-Host 'Registro da instalacao anterior recuperado.'}
 }
 function Assert-ManagedDirectory([string]$Path) {
  $full=[IO.Path]::GetFullPath($Path).TrimEnd('\')

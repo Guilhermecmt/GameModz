@@ -18,7 +18,7 @@ Testes: Test-Session.ps1 cobre repeticao isolada, restauracao parcial, migracao 
 
 ## Interface visual
 
-Abra **GameModz.exe** ou **GameModz.lnk** para iniciar sem janela de terminal. O executavel e um lancador grafico pequeno, compilado a partir de Launcher.cs; inicia o PowerShell com CreateNoWindow. Mantenha-o junto dos scripts e de Interface.xaml. O icone verde permanece na janela e no atalho. A imagem decorativa lateral foi removida; o unico botao principal usa verde, simbolo de energia e textos de progresso. Os arquivos .cmd sao atalhos legados e podem mostrar um breve console ao serem abertos pelo Windows; prefira o .exe ou .lnk.
+Abra **GameModz.exe** ou **GameModz.lnk** para iniciar sem janela de terminal. O executavel e um lancador grafico pequeno, compilado a partir de Launcher.cs pelo instalador ou por Build.ps1 (ele nao fica no repositorio); inicia o PowerShell com CreateNoWindow. Mantenha-o junto dos scripts e de Interface.xaml. O icone verde permanece na janela e no atalho. A imagem decorativa lateral foi removida; o unico botao principal usa verde, simbolo de energia e textos de progresso. Os arquivos .cmd sao atalhos legados e podem mostrar um breve console ao serem abertos pelo Windows; prefira o .exe ou .lnk.
 
 OneDrive: o pedido de encerramento espera no maximo 5 segundos pela saida do processo original. Se nao houver confirmacao, registra aviso e continua os outros ajustes; nao mata o OneDrive. Como ele estava aberto antes, a restauracao ainda solicita sua abertura, inclusive quando o encerramento nao foi confirmado. O progresso aparece no painel Atividade. A opcao de sincronizacao nao garante que o OneDrive aceitou o comando.
 

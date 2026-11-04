@@ -10,6 +10,9 @@ function Install-Test {& (Join-Path $PSScriptRoot 'Install.ps1') -SourcePath $PS
 try{
  Install-Test
  Assert (Test-Path (Join-Path $installed 'GameModz.exe')) 'Executavel nao instalado.'
+ $expectedVersion=(Get-Content -LiteralPath (Join-Path $PSScriptRoot 'VERSION') -Raw).Trim()+'.0'
+ Assert ((Get-Item -LiteralPath (Join-Path $installed 'GameModz.exe')).VersionInfo.FileVersion -eq $expectedVersion) 'Lancador nao foi compilado com a versao do pacote.'
+ Assert (-not(Get-Item -LiteralPath (Join-Path $installed 'GameModz.exe') -Stream Zone.Identifier -ErrorAction SilentlyContinue)) 'Lancador compilado ficou marcado como baixado da internet.'
  $shell=New-Object -ComObject WScript.Shell
  $shortcut=$shell.CreateShortcut((Join-Path $desktop 'GameModz.lnk'))
  $fs=New-Object -ComObject Scripting.FileSystemObject

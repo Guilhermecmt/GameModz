@@ -2,22 +2,22 @@
 
 **Prepare o Windows para jogar e recupere suas configurações ao terminar.**
 
-**Versão 1.2.1 · Windows · Instalação sem administrador**
+**Versão 1.3.0 · Windows · Instalação sem administrador**
 
 GameModz é um utilitário com interface gráfica para ajustar temporariamente a aparência do Windows, reduzir distrações e acompanhar o uso de recursos. Salva o estado anterior e restaura os ajustes ao fechar a janela. Não promete aumento de FPS e não altera antivírus, firewall, serviços, jogos ou anticheats.
 
 ## Instalar
 
-A instalação é por usuário e **cria automaticamente um atalho na área de trabalho**, além de atalhos para abrir e desinstalar o GameModz no menu Iniciar. Não exige administrador, Git, Python, Node.js ou compilação.
+A instalação é por usuário e **cria automaticamente um atalho na área de trabalho**, além de atalhos para abrir e desinstalar o GameModz no menu Iniciar. Não exige administrador, Git, Python, Node.js nem ferramentas extras: o lançador `GameModz.exe` é compilado durante a instalação, a partir de `Launcher.cs`, com o compilador C# que já vem no .NET Framework do Windows.
 
 ### Opção 1 — baixar e clicar
 
-1. [Baixe o GameModz 1.2.1 em ZIP](https://github.com/Guilhermecmt/GameModz/archive/refs/tags/v1.2.1.zip).
+1. [Baixe o GameModz 1.3.0 em ZIP](https://github.com/Guilhermecmt/GameModz/archive/refs/tags/v1.3.0.zip).
 2. Clique com o botão direito no ZIP e escolha **Extrair tudo**.
 3. Na pasta extraída, dê dois cliques em **`Install.cmd`**.
 4. Aguarde a confirmação e abra **GameModz** pelo atalho da área de trabalho.
 
-Depois da instalação, você pode apagar o ZIP e a pasta extraída. `GameModz.exe` é o lançador do aplicativo; **o instalador é `Install.cmd` / `Install.ps1`**. Não há um pacote MSI ou `Setup.exe` nesta versão.
+Depois da instalação, você pode apagar o ZIP e a pasta extraída. **O instalador é `Install.cmd` / `Install.ps1`**; o pacote não traz nenhum executável pronto, só código-fonte que você pode ler. Não há um pacote MSI ou `Setup.exe` nesta versão.
 
 ### Opção 2 — instalar pelo terminal
 
@@ -25,11 +25,11 @@ Abra o **PowerShell**, sem executar como administrador, e cole:
 
 ```powershell
 $instalador = Join-Path $env:TEMP 'GameModz-Install.ps1'
-Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Guilhermecmt/GameModz/v1.2.1/Install.ps1' -OutFile $instalador -UseBasicParsing
+Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Guilhermecmt/GameModz/v1.3.0/Install.ps1' -OutFile $instalador -UseBasicParsing
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File $instalador
 ```
 
-O script baixa o pacote da tag **`v1.2.1`**, valida sua estrutura, instala os arquivos e cria os atalhos. Você pode [ler o instalador antes de executar](Install.ps1). `ExecutionPolicy Bypass` vale somente para esse processo; a instalação não altera a política permanente da máquina.
+O script baixa o pacote da tag **`v1.3.0`**, valida sua estrutura, instala os arquivos e cria os atalhos. Você pode [ler o instalador antes de executar](Install.ps1). `ExecutionPolicy Bypass` vale somente para esse processo; a instalação não altera a política permanente da máquina.
 
 ### A partir de uma cópia local
 
@@ -41,7 +41,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1
 
 Nesse caso, usa os arquivos locais, sem baixar novamente. A versão instalada é a indicada no `VERSION` dessa pasta.
 
-Para usar sem instalar, abra `GameModz.exe` na pasta extraída e mantenha os scripts, `Interface.xaml` e `assets` juntos. O modo portátil não cria atalhos automaticamente.
+Para usar sem instalar, gere o lançador com `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Build.ps1`, abra o `GameModz.exe` criado na pasta e mantenha os scripts, `Interface.xaml` e `assets` juntos. O modo portátil não cria atalhos automaticamente.
 
 ### Requisitos
 
@@ -49,7 +49,7 @@ Para usar sem instalar, abra `GameModz.exe` na pasta extraída e mantenha os scr
 - Permissão de escrita no perfil e na área de trabalho do usuário.
 - Internet para baixar. Instalação a partir do ZIP completo e uso do aplicativo funcionam offline.
 
-Os scripts e o executável não têm assinatura digital. Se uma política da máquina bloquear a execução, verifique a origem dos arquivos e consulte a política da organização. O instalador não desativa proteções.
+Os scripts não têm assinatura digital, e o lançador é compilado na sua máquina a partir do código do repositório. Se uma política da máquina bloquear a execução, verifique a origem dos arquivos e consulte a política da organização. O instalador não desativa proteções.
 
 ### Onde fica instalado
 

@@ -1,5 +1,12 @@
 # Histórico de versões
 
+## 1.3.0 — 2026-11-04
+
+- O repositório não guarda mais o `GameModz.exe`. O instalador compila o lançador a partir de `Launcher.cs` com o compilador C# do .NET Framework, então o executável instalado corresponde ao código publicado.
+- `Build.ps1` aceita `-OutputPath` e grava o arquivo temporário fora da pasta de origem.
+- A instalação copia `Launcher.cs` e `Build.ps1`, de modo que a pasta instalada também serve como pacote para reinstalar.
+- Validação automática no GitHub Actions passa a rodar a bateria completa (`Test-All.ps1 -Build`), inclusive os testes do instalador.
+
 ## 1.2.1 — 2026-11-04
 
 - Recuperação automática agora trata erros por tentativa: uma falha do backend não interrompe as três tentativas previstas, e snapshots pendentes são preservados.

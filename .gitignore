@@ -27,3 +27,6 @@ estado.json.bak
 *.ready
 AssemblyInfo.tmp.cs
 wallpaper-original.*
+
+# Lancador: compilado localmente por Build.ps1 ou pelo instalador
+GameModz.exe

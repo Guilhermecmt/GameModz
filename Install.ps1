@@ -1,6 +1,6 @@
 ﻿[CmdletBinding()]
 param(
- [ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='1.2.1',
+ [ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='1.3.0',
  [string]$SourcePath,
  [string]$DesktopDirectory=[Environment]::GetFolderPath('DesktopDirectory'),
  [string]$StartMenuDirectory=[Environment]::GetFolderPath('Programs')
@@ -9,7 +9,7 @@ $ErrorActionPreference='Stop'
 if($env:OS -ne 'Windows_NT' -or $PSVersionTable.PSVersion -lt [version]'5.1'){throw 'Use Windows PowerShell 5.1 ou superior no Windows.'}
 $downloadRoot=$null;$stage=$null;$backup=$null;$locked=$false;$promoted=$false;$shortcutBackups=@{}
 try{
- if(-not $SourcePath -and (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'GameModz.exe'))){$SourcePath=$PSScriptRoot}
+ if(-not $SourcePath -and (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'Launcher.cs'))){$SourcePath=$PSScriptRoot}
  if(-not $SourcePath){
   $downloadRoot=Join-Path $env:TEMP ('GameModz-Download-'+[guid]::NewGuid().ToString('N'))
   New-Item -ItemType Directory -Path $downloadRoot|Out-Null
@@ -33,7 +33,8 @@ try{
   if((Get-Content -LiteralPath (Join-Path $SourcePath 'VERSION') -Raw).Trim() -ne $Version){throw 'Versao do pacote diferente da solicitada.'}
  }
  $SourcePath=(Resolve-Path -LiteralPath $SourcePath).ProviderPath
- $files=@('GameModz.exe','GameModz-UI.ps1','GameModz.ps1','Engine.ps1','Safety.ps1','Recovery.Worker.ps1','SessionGuard.cs','Process.Common.ps1','Monitor.Worker.ps1','Interface.Helpers.ps1','Interface.Session.ps1','Interface.xaml','Installer.Common.ps1','Uninstall.ps1','VERSION','README.md','SAFETY.md','CHANGELOG.md','assets\GameModz.ico','assets\power-core.png')
+ # O lancador nao vem pronto no pacote: e compilado aqui a partir de Launcher.cs.
+ $files=@('Launcher.cs','Build.ps1','GameModz-UI.ps1','GameModz.ps1','Engine.ps1','Safety.ps1','Recovery.Worker.ps1','SessionGuard.cs','Process.Common.ps1','Monitor.Worker.ps1','Interface.Helpers.ps1','Interface.Session.ps1','Interface.xaml','Installer.Common.ps1','Uninstall.ps1','VERSION','README.md','SAFETY.md','CHANGELOG.md','assets\GameModz.ico','assets\power-core.png')
  foreach($file in $files){if(-not(Test-Path -LiteralPath (Join-Path $SourcePath $file) -PathType Leaf)){throw ('Pacote incompleto: '+$file)}}
  $packageVersion=(Get-Content -LiteralPath (Join-Path $SourcePath 'VERSION') -Raw).Trim()
  if($packageVersion -notmatch '^\d+\.\d+\.\d+$'){throw 'Versao invalida no pacote.'}
@@ -54,6 +55,9 @@ try{
  [void](Assert-ManagedDirectory $stage);New-Item -ItemType Directory -Path $stage|Out-Null
  New-Item -ItemType Directory -Path (Join-Path $stage 'assets')|Out-Null
  foreach($file in $files){Copy-Item -LiteralPath (Join-Path $SourcePath $file) -Destination (Join-Path $stage $file) -Force;Unblock-File -LiteralPath (Join-Path $stage $file)}
+ Write-Host 'Compilando o lancador...'
+ & (Join-Path $stage 'Build.ps1') -OutputPath (Join-Path $stage 'GameModz.exe')|Out-Null
+ if(-not(Test-Path -LiteralPath (Join-Path $stage 'GameModz.exe') -PathType Leaf)){throw 'Lancador nao foi compilado.'}
  $manifest=[ordered]@{Product='GameModz';InstallerSchema=1;Version=$packageVersion;InstallDirectory=$script:installDirectory;DesktopShortcut=$desktopLink;MenuShortcut=$menuLink;UninstallShortcut=$uninstallLink;Installed=(Get-Date).ToString('o')}
  $manifest|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $stage $script:installMarker) -Encoding UTF8
  $hadPrevious=Test-Path -LiteralPath $script:installDirectory
@@ -69,7 +73,7 @@ try{
  Set-GameModzShortcut $uninstallLink $hostPath ('-NoProfile -ExecutionPolicy Bypass -File "'+(Join-Path $script:installDirectory 'Uninstall.ps1')+'"')
  $transaction.Committed=$true
  Write-InstallTransaction $transaction
- Repair-InstallTransaction
+ Repair-InstallTransaction -Quiet
  $backup=$null
 }catch{
  $failure=$_
