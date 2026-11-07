@@ -1,5 +1,10 @@
 # Histórico de versões
 
+## 1.3.2 — 2026-11-07
+
+- Ícone refeito com o mesmo desenho e muito mais nitidez, nos atalhos, na janela e na barra de tarefas.
+- `GameModz.ico` passa a ter dez tamanhos, de 16 a 256, em vez de uma imagem só de 256 que o Windows encolhia. Nos tamanhos pequenos, o enquadramento fecha no centro para o símbolo de power continuar legível.
+
 ## 1.3.1 — 2026-11-04
 
 - OneDrive e aplicativos reabertos na restauração passam a iniciar na pasta do próprio aplicativo. Antes herdavam a pasta do GameModz como diretório atual e a deixavam presa, impedindo mover, atualizar ou desinstalar o programa.
